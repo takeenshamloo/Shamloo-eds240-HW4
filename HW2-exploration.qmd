@@ -1,0 +1,137 @@
+---
+title: "Exploratory Analysis for HW2"
+author: "Takeen Shamloo"
+editor: source
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    embed-resources: true
+---
+
+## Exploring Historical Production and Delivery Data for California Water Suppliers
+
+## Dataset Information
+
+**Source:** Historical water data from the California Data Water Consortium.  
+
+**Variables:**  
+
+- `pwsid`: Public Water System ID number associated with water system. Can be linked with `org_id`.
+- `water_system_name`: Name of the water system.
+- `org_id`: Organization ID assigned to the urban water supplier.
+- `start_date`, `end_date`: Reporting period covering one month.
+- `water_produced_or_delivered`: Categorizes data as either "water produced" or "water delivered".
+- `water_type`: Type of water (e.g., treated, raw, recycled, groundwater, surface water, etc.).
+- `quantity_acre_feet`: Converted quantity of water in acre-feet.
+
+**Questions to Answer:**  
+1. Are there seasonal or regional patterns in production rates or delivery delays?  
+2. Which regions experience the highest delays, and why?  
+3. How do production rates correlate with delivery efficiency?  
+
+**Data Access:** CSV file available via the California Natural Resources Agency portal.  
+
+#### Load Packages
+
+```{r}
+#| warning: FALSE
+library(tidyverse)
+library(ggplot2)
+library(here)
+library(dplyr)
+```
+
+### Load Data
+
+```{r}
+#| warning: FALSE
+# Load data
+historical_df <- read_csv(here("data", "historical_production_delivery.csv"))
+```
+
+## Data Wrangling
+
+```{r}
+# Clean and transform data
+historical_df_clean <- historical_df %>%
+  filter(!is.na(quantity_acre_feet)) %>%
+  mutate(start_date = as.Date(start_date),
+         end_date = as.Date(end_date),
+         quantity_million_af = quantity_acre_feet / 1e6) # Scale to million acre-feet
+```
+
+## Exploratory Data Visualizations
+
+### Plot 1: Water Delivered by Selected Water Types
+
+```{r}
+filtered_types <- historical_df_clean %>%
+  filter(water_type %in% c("industrial", "landscape irrigation", "recycled", "groundwater wells"))
+
+ggplot(filtered_types, aes(x = water_type, y = quantity_million_af, fill = water_type)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Sum of Water Delivered by Selected Water Types", 
+    x = "Water Type", 
+    y = "Quantity (Million Acre-Feet)",
+    fill = "Water Types") +
+  theme_minimal() +
+  coord_flip()
+```
+
+### Plot 2: Seasonal Trends in Water Production (Filtered & Scaled to Million Acre-Feet)
+
+```{r}
+ggplot(filtered_types, aes(x = start_date, y = quantity_million_af, color = water_type)) +
+  geom_line() +
+  labs(
+    title = "Seasonal Trends in Water Production", 
+    x = "Date", 
+    y = "Quantity (Million Acre-Feet)",
+    fill = "Water Types") +
+  theme(
+    legend.position = "right",
+    legend.justification = "top") 
+```
+
+### Plot 3: Regions with the Highest Delays
+```{r}
+delay_analysis_df <- historical_df_clean %>%
+  group_by(org_id, water_type) %>%
+  summarize(avg_quantity = mean(quantity_million_af, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(avg_quantity)) %>%
+  slice_max(avg_quantity, n = 10)
+
+ggplot(delay_analysis_df, aes(x = reorder(org_id, avg_quantity), y = avg_quantity, fill = water_type)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Regions with the Highest Delays in Water Delivery", x = "Organization ID", y = "Average Quantity (Million Acre-Feet)") +
+  scale_fill_viridis_d() +
+  theme_minimal()
+```
+
+## Reflection
+
+### **1. What have we learned about this data?**
+
+**Seasonality is clear:** Water production and delivery fluctuate across the year, with some months seeing significantly higher or lower delivery rates (**Plot 2**).
+
+**Regional disparities exist:** Certain regions consistently **deliver more water** than others, and the delays in delivery appear concentrated in specific areas (**Plot 3**).
+
+**Delivery efficiency depends on water type:** Some types (like **industrial and recycled water**) have more consistent production, while others fluctuate more (**Plot 1**).
+
+### **2. How are we doing on our original questions?**
+
+**Are there seasonal/regional patterns?** → **Yes**, production and delivery vary **seasonally** (**Plot 2**) and **regionally** (**Plot 3**).
+
+**Which regions experience the highest delays, and why?** → We identified the **top 10 regions** with the highest delivery delays (**Plot 3**), but need more analysis to determine the reasons (e.g., infrastructure, policies).
+
+**How do production rates correlate with efficiency?** → Not fully answered yet—**next steps** should include comparing production and delivery rates over time.
+
+### **3. What challenges are ahead?**
+
+**Time-series alignment:** Making sure that data is properly **aggregated and compared across months** so trends remain accurate.
+
+**Understanding delays:** We need more **external data** (e.g., policy or infrastructure info) to determine **why** some regions have delays.
+
+**Further correlation analysis:** Investigating whether **higher production rates lead to greater efficiency or more delays**.
