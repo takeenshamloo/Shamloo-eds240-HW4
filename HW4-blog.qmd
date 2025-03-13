@@ -123,6 +123,7 @@ have discussed in this analysis.
 # | code-fold: true
 # | eval: false
 # | echo: true
+
 library(tidyverse)
 library(ggplot2)
 library(here)
@@ -308,7 +309,7 @@ base_map <-
 if (nrow(filtered_source_geo) == 0) {
   print(base_map)
 } else {
-  base_map +
+  base_map +docs
     tm_shape(filtered_source_geo) +
     tm_symbols(
       col = "source_facility_type",  # Color points by facility type.
